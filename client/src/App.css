@@ -1,0 +1,162 @@
+:root {
+  --bg: #f6f6f8;
+  --card: #ffffff;
+  --primary: #7c46ff; /* change to maroon if chahiye */
+  --accent: #4a1533;
+  --muted: #71717a;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial;
+  background: var(--bg);
+}
+
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  padding: 32px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(16, 24, 40, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: stretch; /* important: children take full width */
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--primary), #641db4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.brand h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--accent);
+  letter-spacing: 0.2px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  color: #545861;
+}
+
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+  border-radius: 8px;
+  border: 1px solid #e6e9ee;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 6px 18px rgba(124, 70, 255, 0.08);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btn {
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.secondary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.forgot {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.note {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+/* responsive tweaks */
+@media (max-width: 420px) {
+  .login-card {
+    padding: 20px;
+    border-radius: 10px;
+  }
+  .brand h2 {
+    font-size: 18px;
+  }
+}
+
+.forgot-password-btn {
+  background: none;
+  border: none;
+  color: #007bff; /* Bootstrap blue */
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font: inherit; /* matches surrounding text */
+}
+
+.forgot-password-btn:hover {
+  color: #0056b3; /* darker blue on hover */
+}
