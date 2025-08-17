@@ -233,6 +233,7 @@ const Dashboard = () => {
             <ul>
               <li>
                 Use wildcards (<code>{"/*"}</code>) for full directory.
+                {/* Updated by team member - test change */}
               </li>
               <li>Avoid unnecessary invalidations to save AWS cost.</li>
               <li>Schedule during off-peak hours if possible.</li>
