@@ -1,78 +1,89 @@
-const express = require("express");
-const router = express.Router();
-const AWS = require("aws-sdk");
+// // Lambda: invalidate.js (Node.js 18.x runtime recommended)
+// import { CloudFrontClient, CreateInvalidationCommand } from "@aws-sdk/client-cloudfront";
 
-// 🛠 Example: In a real scenario, this comes from JWT or session
-const currentUser = {
-  email: "test@company.com",
-  role: "admin", // or "admin"
-};
+// // Env vars to set in Lambda configuration
+// // DISTRIBUTION_ID = E*************
+// // AWS_REGION = us-east-1 (CloudFront control-plane)
+// // ALLOW_WILDCARD = "false"  // set "true" only if you want to allow '/*'
+// // ALLOWED_ORIGIN = "*" or your domain for CORS
 
-// 🕒 Middleware for role & time restriction
-function timeAccess(role) {
-  return (req, res, next) => {
-    // ✅ DEV MODE → always allow access
-    const devMode = true; // change to false when deploying
+// const DISTRIBUTION_ID = process.env.DISTRIBUTION_ID;
+// const AWS_REGION = process.env.AWS_REGION || "us-east-1";
+// const ALLOW_WILDCARD = String(process.env.ALLOW_WILDCARD || "false").toLowerCase() === "true";
+// const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 
-    if (devMode) {
-      return next();
-    }
+// export const handler = async (event) => {
+//   // CORS preflight
+//   if (event.requestContext?.http?.method === "OPTIONS") {
+//     return {
+//       statusCode: 204,
+//       headers: corsHeaders(),
+//     };
+//   }
 
-    if (role === "admin") {
-      return next();
-    } else {
-      // Time restriction logic (only runs if devMode = false)
-      const now = new Date();
-      const hours = now.getHours();
-      const minutes = now.getMinutes();
+//   try {
+//     const body = typeof event.body === "string" ? JSON.parse(event.body || "{}") : (event.body || {});
+//     const paths = Array.isArray(body.paths) ? body.paths.map(String) : [];
 
-      const inNoonSlot = hours === 12 || (hours === 13 && minutes === 0);
-      const inNightSlot = hours === 20 || (hours === 21 && minutes === 0);
+//     // Basic validations
+//     if (!DISTRIBUTION_ID) {
+//       return response(500, { success: false, message: "Lambda not configured with DISTRIBUTION_ID" });
+//     }
+//     if (!paths.length) {
+//       return response(400, { success: false, message: "paths array required" });
+//     }
+//     for (const p of paths) {
+//       if (!p || typeof p !== "string" || !p.startsWith("/")) {
+//         return response(400, { success: false, message: "each path must be a non-empty string starting with '/'" });
+//       }
+//     }
 
-      if (inNoonSlot || inNightSlot) {
-        return next();
-      } else {
-        return res
-          .status(403)
-          .json({ error: "Access restricted to specific time windows" });
-      }
-    }
-  };
-}
+//     // Wildcard guard (security)
+//     if (!ALLOW_WILDCARD && paths.some((p) => p.trim() === "/*")) {
+//       return response(403, { success: false, message: "Wildcard '/*' invalidation is disabled" });
+//     }
 
-router.post("/", roleAndTimeAccess(currentUser.role), async (req, res) => {
-  const { accessKeyId, secretAccessKey, distributionId, paths } = req.body;
+//     // Optional: use identity/role from headers (if using authorizer)
+//     const userEmail = event.headers?.["x-user-email"] || event.headers?.["X-User-Email"] || "unknown";
+//     const userRole = event.headers?.["x-user-role"] || event.headers?.["X-User-Role"] || "unknown";
 
-  if (!accessKeyId || !secretAccessKey || !distributionId || !paths) {
-    return res.status(400).json({ error: "Missing required fields" });
-  }
+//     const client = new CloudFrontClient({ region: AWS_REGION });
+//     const cmd = new CreateInvalidationCommand({
+//       DistributionId: DISTRIBUTION_ID,
+//       InvalidationBatch: {
+//         CallerReference: `lambda-${Date.now()}`,
+//         Paths: { Quantity: paths.length, Items: paths },
+//       },
+//     });
 
-  AWS.config.update({
-    accessKeyId,
-    secretAccessKey,
-    region: "us-east-1", // CloudFront default
-  });
+//     const data = await client.send(cmd);
 
-  const cloudfront = new AWS.CloudFront();
+//     return response(200, {
+//       success: true,
+//       actor: { email: userEmail, role: userRole },
+//       distributionId: DISTRIBUTION_ID,
+//       invalidationId: data?.Invalidation?.Id || null,
+//       status: data?.Invalidation?.Status || null,
+//       paths,
+//     });
+//   } catch (err) {
+//     console.error("Lambda error:", err);
+//     return response(500, { success: false, message: "Invalidation failed", error: err?.message || String(err) });
+//   }
+// };
 
-  const params = {
-    DistributionId: distributionId,
-    InvalidationBatch: {
-      CallerReference: `${Date.now()}`,
-      Paths: {
-        Quantity: paths.length,
-        Items: paths,
-      },
-    },
-  };
-
-  try {
-    const data = await cloudfront.createInvalidation(params).promise();
-    res.json({ success: true, data });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-module.exports = router;
+// // helpers
+// function response(statusCode, body) {
+//   return {
+//     statusCode,
+//     headers: corsHeaders(),
+//     body: JSON.stringify(body),
+//   };
+// }
+// function corsHeaders() {
+//   return {
+//     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+//     "Access-Control-Allow-Headers": "Content-Type,Authorization,X-User-Email,X-User-Role",
+//     "Access-Control-Allow-Methods": "POST,OPTIONS",
+//   };
+// }

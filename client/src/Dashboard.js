@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
 
+const API_GATEWAY_URL = "https://er304riwil.execute-api.ap-south-1.amazonaws.com/prod/invalidate"; 
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [paths, setPaths] = useState("/*");
@@ -24,13 +26,21 @@ const Dashboard = () => {
 
   const fetchLogs = async () => {
     try {
+      if (!token) return;
+      
       const res = await fetch("/logs", {
         headers: { Authorization: `Bearer ${token}` },
       });
+      
+      if (!res.ok) {
+        console.error("Logs fetch failed:", res.status, res.statusText);
+        return;
+      }
+      
       const data = await res.json();
-      if (data.success) setLogs(data.logs);
+      if (data.success) setLogs(data.logs.reverse()); // latest first
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching logs:", err);
     }
   };
 
@@ -44,30 +54,94 @@ const Dashboard = () => {
       .split("\n")
       .map((p) => p.trim())
       .filter(Boolean);
-    if (arr.length === 0) return showToast("error", "Koi path daalo pehle");
+
+    if (arr.length === 0)
+      return showToast("error", "Bhai koi path to daal de pehle!");
 
     if (!window.confirm(`Confirm invalidate ${arr.length} path(s)?`)) return;
 
     setLoading(true);
     try {
-      const res = await fetch("/invalidate", {
+      console.log("Sending body:", JSON.stringify({ paths: arr }));
+
+      const res = await fetch(API_GATEWAY_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ paths: arr }),
       });
+
+      console.log("Response status:", res.status);
+
+      if (!res.ok) {
+        console.error("Invalidate request failed:", res.status, res.statusText);
+        const errorText = await res.text();
+        console.error("Error response:", errorText);
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          showToast("error", errorData.message || "Invalidation failed ❌");
+        } catch {
+          showToast("error", `Request failed: ${res.status} ${res.statusText}`);
+        }
+        
+        setLogs((prev) => [
+          {
+            user: "seo@company.com",
+            time: new Date().toISOString(),
+            paths: arr,
+            error: `HTTP ${res.status}: ${res.statusText}`,
+          },
+          ...prev,
+        ]);
+        return;
+      }
+
       const data = await res.json();
+      console.log("Response data:", data);
+
       if (data.success) {
         showToast("success", "Invalidation triggered ✅");
-        fetchLogs();
+
+        setLogs((prev) => [
+          {
+            user: "seo@company.com",
+            time: new Date().toISOString(),
+            paths: arr,
+            result: {
+              id: data.invalidationId || "-",
+              status: data.status || "Pending",
+            },
+          },
+          ...prev,
+        ]);
       } else {
         showToast("error", data.message || "Invalidation failed ❌");
+
+        setLogs((prev) => [
+          {
+            user: "seo@company.com",
+            time: new Date().toISOString(),
+            paths: arr,
+            error: data.message || "Failed",
+          },
+          ...prev,
+        ]);
       }
     } catch (err) {
       console.error(err);
       showToast("error", "Server error ❌");
+
+      setLogs((prev) => [
+        {
+          user: "seo@company.com",
+          time: new Date().toISOString(),
+          paths: arr,
+          error: err.message || "Server error",
+        },
+        ...prev,
+      ]);
     } finally {
       setLoading(false);
     }
@@ -194,7 +268,9 @@ const Dashboard = () => {
                   <div className="muted">
                     Result:{" "}
                     {l.result
-                      ? `${l.result.status} (${l.result.id})`
+                      ? `${l.result.status || "Pending"} (${
+                          l.result.id || "-"
+                        })`
                       : l.error || "—"}
                   </div>
                 </div>
@@ -233,7 +309,6 @@ const Dashboard = () => {
             <ul>
               <li>
                 Use wildcards (<code>{"/*"}</code>) for full directory.
-                {/* Updated by team member - test change */}
               </li>
               <li>Avoid unnecessary invalidations to save AWS cost.</li>
               <li>Schedule during off-peak hours if possible.</li>
