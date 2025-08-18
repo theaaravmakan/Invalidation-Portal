@@ -1,17 +1,27 @@
-// services/awsInvalidation.js
-const AWS = require("aws-sdk");
+// services/awsInvalidation.js (AWS SDK v3)
+const { CloudFrontClient, CreateInvalidationCommand } = require("@aws-sdk/client-cloudfront");
 
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY,
-  secretAccessKey: process.env.AWS_SECRET_KEY,
-  region: "us-east-1",
-});
-
-const cloudfront = new AWS.CloudFront();
+const AWS_REGION = "us-east-1"; // CloudFront control-plane region
 
 async function runInvalidation(paths) {
-  const params = {
-    DistributionId: process.env.AWS_DISTRIBUTION_ID,
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_KEY;
+  const distributionId = process.env.AWS_DISTRIBUTION_ID || process.env.DISTRIBUTION_ID;
+
+  if (!distributionId) {
+    throw new Error("Missing AWS_DISTRIBUTION_ID or DISTRIBUTION_ID env var");
+  }
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error("Missing AWS credentials (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY)");
+  }
+
+  const client = new CloudFrontClient({
+    region: AWS_REGION,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  const cmd = new CreateInvalidationCommand({
+    DistributionId: distributionId,
     InvalidationBatch: {
       CallerReference: `${Date.now()}`,
       Paths: {
@@ -19,9 +29,9 @@ async function runInvalidation(paths) {
         Items: paths,
       },
     },
-  };
+  });
 
-  return cloudfront.createInvalidation(params).promise();
+  return client.send(cmd);
 }
 
 module.exports = { runInvalidation };

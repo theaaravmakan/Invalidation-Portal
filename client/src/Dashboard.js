@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
 
-const API_GATEWAY_URL = "https://er304riwil.execute-api.ap-south-1.amazonaws.com/prod/invalidate"; 
+const API_GATEWAY_URL = "/invalidate";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -27,18 +27,18 @@ const Dashboard = () => {
   const fetchLogs = async () => {
     try {
       if (!token) return;
-      
+
       const res = await fetch("/logs", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       if (!res.ok) {
         console.error("Logs fetch failed:", res.status, res.statusText);
         return;
       }
-      
+
       const data = await res.json();
-      if (data.success) setLogs(data.logs.reverse()); // latest first
+      if (data.success) setLogs(data.logs.reverse());
     } catch (err) {
       console.error("Error fetching logs:", err);
     }
@@ -68,41 +68,24 @@ const Dashboard = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ paths: arr }),
       });
 
       console.log("Response status:", res.status);
 
-      if (!res.ok) {
-        console.error("Invalidate request failed:", res.status, res.statusText);
-        const errorText = await res.text();
-        console.error("Error response:", errorText);
-        
-        try {
-          const errorData = JSON.parse(errorText);
-          showToast("error", errorData.message || "Invalidation failed ❌");
-        } catch {
-          showToast("error", `Request failed: ${res.status} ${res.statusText}`);
-        }
-        
-        setLogs((prev) => [
-          {
-            user: "seo@company.com",
-            time: new Date().toISOString(),
-            paths: arr,
-            error: `HTTP ${res.status}: ${res.statusText}`,
-          },
-          ...prev,
-        ]);
-        return;
-      }
+      const raw = await res.json();
+      console.log("Raw response:", raw);
 
-      const data = await res.json();
-      console.log("Response data:", data);
+      // handle double-stringified body
+      const data =
+        raw && typeof raw.body === "string" ? JSON.parse(raw.body) : raw;
 
-      if (data.success) {
-        showToast("success", "Invalidation triggered ✅");
+      console.log("Parsed response:", data);
+
+      if (res.ok && data.success) {
+        showToast("success", data.message || "Invalidation triggered ✅");
 
         setLogs((prev) => [
           {
@@ -110,8 +93,8 @@ const Dashboard = () => {
             time: new Date().toISOString(),
             paths: arr,
             result: {
-              id: data.invalidationId || "-",
-              status: data.status || "Pending",
+              id: data.result?.id || "-",
+              status: data.result?.status || "Pending",
             },
           },
           ...prev,
